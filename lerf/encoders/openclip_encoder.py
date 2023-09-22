@@ -11,7 +11,7 @@ except ImportError:
 
 from lerf.encoders.image_encoder import (BaseImageEncoder,
                                          BaseImageEncoderConfig)
-from nerfstudio.viewer.server.viewer_elements import ViewerText
+from nerfstudio.viewer.server.viewer_elements import ViewerText, ViewerCheckbox
 
 
 @dataclass
@@ -46,11 +46,16 @@ class OpenCLIPNetwork(BaseImageEncoder):
         self.model = model.to("cuda")
         self.clip_n_dims = self.config.clip_n_dims
 
+        self.lerf_enabled_input = ViewerCheckbox("Enable LERF", True, False, cb_hook=self.gui_cb, hint="Enable lerf outputs")
+        
         self.positive_input = ViewerText("LERF Positives", "", cb_hook=self.gui_cb)
         self.negative_input = ViewerText("LERF Negatives", ";".join(self.config.negatives), cb_hook=self.gui_cb)
+        
+        self.lerf_enabled = self.lerf_enabled_input
+        # self.positive_input.set_hidden(not self.lerf_enabled)
+        # self.negative_input.set_hidden(not self.lerf_enabled)
 
         self.positives = self.positive_input.value.split(";")
-        #self.negatives = self.config.negatives
         self.negatives = self.negative_input.value.split(";")
 
         with torch.no_grad():
@@ -76,15 +81,31 @@ class OpenCLIPNetwork(BaseImageEncoder):
     def embedding_dim(self) -> int:
         return self.config.clip_n_dims
     
-    def gui_cb(self,element):
-        self.set_positives(element.value.split(";"))
+    def gui_cb(self, _):
+        self.lerf_enabled = self.lerf_enabled_input.value
+
+        self.positive_input.set_hidden(not self.lerf_enabled)
+        self.set_positives(self.positive_input.value.split(";") if self.lerf_enabled else [])
+        
+        self.negative_input.set_hidden(not self.lerf_enabled)
+        self.set_negatives(self.negative_input.value.split(";"))
 
     def set_positives(self, text_list):
         self.positives = text_list
+        if len(text_list) == 0:
+            return
+
         with torch.no_grad():
             tok_phrases = torch.cat([self.tokenizer(phrase) for phrase in self.positives]).to("cuda")
             self.pos_embeds = self.model.encode_text(tok_phrases)
         self.pos_embeds /= self.pos_embeds.norm(dim=-1, keepdim=True)
+
+    def set_negatives(self, text_list):
+        self.negatives = text_list
+        with torch.no_grad():
+            tok_phrases = torch.cat([self.tokenizer(phrase) for phrase in self.negatives]).to("cuda")
+            self.neg_embeds = self.model.encode_text(tok_phrases)
+        self.neg_embeds /= self.neg_embeds.norm(dim=-1, keepdim=True)
 
     def get_relevancy(self, embed: torch.Tensor, positive_id: int) -> torch.Tensor:
         phrases_embeds = torch.cat([self.pos_embeds, self.neg_embeds], dim=0)
