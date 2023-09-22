@@ -84,6 +84,9 @@ class LERFModel(NerfactoModel):
         return torch.stack(n_phrases_sims), torch.Tensor(n_phrases_maxs)
 
     def get_outputs(self, ray_bundle: RayBundle):
+        if self.image_encoder.positives == [''] and not self.training:
+            return super().get_outputs(ray_bundle)
+
         ray_samples, weights_list, ray_samples_list = self.proposal_sampler(ray_bundle, density_fns=self.density_fns)
         ray_samples_list.append(ray_samples)
 
@@ -150,6 +153,9 @@ class LERFModel(NerfactoModel):
         Args:
             camera_ray_bundle: ray bundle to calculate outputs over
         """
+        if self.image_encoder.positives == [''] and not self.training:
+            return super().get_outputs_for_camera_ray_bundle(camera_ray_bundle)
+
         # TODO(justin) implement max across behavior
         num_rays_per_chunk = self.config.eval_num_rays_per_chunk
         image_height, image_width = camera_ray_bundle.origins.shape[:2]
