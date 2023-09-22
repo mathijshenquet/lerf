@@ -47,9 +47,12 @@ class OpenCLIPNetwork(BaseImageEncoder):
         self.clip_n_dims = self.config.clip_n_dims
 
         self.positive_input = ViewerText("LERF Positives", "", cb_hook=self.gui_cb)
+        self.negative_input = ViewerText("LERF Negatives", ";".join(self.config.negatives), cb_hook=self.gui_cb)
 
         self.positives = self.positive_input.value.split(";")
-        self.negatives = self.config.negatives
+        #self.negatives = self.config.negatives
+        self.negatives = self.negative_input.value.split(";")
+
         with torch.no_grad():
             tok_phrases = torch.cat([self.tokenizer(phrase) for phrase in self.positives]).to("cuda")
             self.pos_embeds = model.encode_text(tok_phrases)
