@@ -46,8 +46,8 @@ class OpenCLIPNetwork(BaseImageEncoder):
         self.model = model.to("cuda")
         self.clip_n_dims = self.config.clip_n_dims
 
-        self.positive_input = ViewerText("LERF Positives", "", cb_hook=self.gui_cb)
-        self.negative_input = ViewerText("LERF Negatives", ";".join(self.config.negatives), cb_hook=self.gui_cb)
+        self.positive_input = ViewerText("LERF Positives", "", cb_hook=self.cb_positives)
+        self.negative_input = ViewerText("LERF Negatives", ";".join(self.config.negatives), cb_hook=self.cb_negatives)
 
         self.positives = self.positive_input.value.split(";")
         self.negatives = self.negative_input.value.split(";")
@@ -75,9 +75,11 @@ class OpenCLIPNetwork(BaseImageEncoder):
     def embedding_dim(self) -> int:
         return self.config.clip_n_dims
     
-    def gui_cb(self, _):
-        self.set_positives(self.positive_input.value.split(";"))
-        self.set_negatives(self.negative_input.value.split(";"))
+    def cb_positives(self, element):
+        self.set_positives(element.value.split(";"))
+        
+    def cb_negatives(self, element):
+        self.set_negatives(element.value.split(";"))
 
     def set_positives(self, text_list):
         self.positives = text_list
@@ -86,7 +88,7 @@ class OpenCLIPNetwork(BaseImageEncoder):
             self.pos_embeds = self.model.encode_text(tok_phrases)
         self.pos_embeds /= self.pos_embeds.norm(dim=-1, keepdim=True)
 
-    def set_positives(self, text_list):
+    def set_negatives(self, text_list):
         self.negatives = text_list
         with torch.no_grad():
             tok_phrases = torch.cat([self.tokenizer(phrase) for phrase in self.negatives]).to("cuda")
